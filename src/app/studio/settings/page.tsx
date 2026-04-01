@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Sliders, Palette, Link as LinkIcon, Camera, Loader2, Save, CheckCircle2 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 const TABS = [
   { id: "profile", label: "Public Profile", icon: User },
@@ -49,14 +49,7 @@ export default function SettingsPage() {
     setTimeout(() => {
       setInitialData(formData);
       setIsSaving(false);
-      toast.success("Site Configuration Updated", {
-        icon: '⚙️',
-        style: {
-          borderRadius: '100px',
-          background: '#333',
-          color: '#fff',
-        },
-      });
+      toast.success("Site Configuration Updated");
     }, 1000);
   };
 
@@ -65,14 +58,7 @@ export default function SettingsPage() {
     setTimeout(() => {
       setIsTestingApi(false);
       if (formData.newsletterApiKey) {
-        toast.success("Connection Successful!", {
-          icon: '🔗',
-          style: {
-            borderRadius: '100px',
-            background: '#10B981',
-            color: '#fff',
-          },
-        });
+        toast.success("Connection Successful!");
       } else {
         toast.error("API Key is missing.");
       }

@@ -11,6 +11,7 @@ export interface Story {
   genre: string;
   excerpt: string;
   coverColor: string;
+  slug: string;
   progress?: number;
   rank?: number;
   wordCount?: string;
@@ -51,7 +52,7 @@ export default function StoryCard({ story, variant = "grid" }: StoryCardProps) {
           </div>
         </div>
         <Link 
-          href={`/stories/${story.id}`}
+          href={`/stories/${story.slug}`}
           className="mt-4 md:mt-0 w-full md:w-auto px-6 py-2 bg-crimson text-white rounded-full text-sm font-semibold tracking-wider hover:bg-crimson/90 transition-colors text-center whitespace-nowrap"
         >
           Continue
@@ -76,7 +77,7 @@ export default function StoryCard({ story, variant = "grid" }: StoryCardProps) {
           <p className="text-sm text-crimson/60">{story.author}</p>
           <p className="text-crimson/80 text-sm line-clamp-2 mt-4">{story.excerpt}</p>
           <Link 
-            href={`/stories/${story.id}`}
+            href={`/stories/${story.slug}`}
             className="inline-block mt-6 text-sm font-bold text-crimson tracking-wider uppercase hover:text-crimson-light transition-colors"
           >
             Read Now &rarr;
@@ -113,7 +114,7 @@ export default function StoryCard({ story, variant = "grid" }: StoryCardProps) {
           </div>
         </div>
       </div>
-      <Link href={`/stories/${story.id}`} className="absolute inset-0 z-10">
+      <Link href={`/stories/${story.slug}`} className="absolute inset-0 z-10">
         <span className="sr-only">View {story.title}</span>
       </Link>
     </motion.div>

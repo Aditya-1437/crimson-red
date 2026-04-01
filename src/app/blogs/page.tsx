@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import BlogCard, { BlogPost } from "@/components/BlogCard";
+import { useAuth } from "@/context/AuthContext";
+import { BlogRowSkeleton } from "@/components/ui/Skeletons";
 
 const MOCK_BLOGS: BlogPost[] = [
   {
@@ -64,6 +66,7 @@ export default function EditorialBlog() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const { loading } = useAuth();
 
   const filteredBlogs = MOCK_BLOGS.filter(blog => {
     const matchesCategory = activeCategory === "All" || blog.category === activeCategory;
@@ -175,7 +178,13 @@ export default function EditorialBlog() {
 
         {/* The Masonry Feed (CSS Grid approximation) */}
         <section className="container mx-auto px-6 md:px-12 py-16 md:py-24 min-h-[50vh]">
-          {filteredBlogs.length > 0 ? (
+          {loading ? (
+            <div className="space-y-8 max-w-4xl mx-auto">
+              <BlogRowSkeleton />
+              <BlogRowSkeleton />
+              <BlogRowSkeleton />
+            </div>
+          ) : filteredBlogs.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
               {filteredBlogs.map((blog, index) => (
                 <BlogCard key={blog.id} post={blog} index={index} />

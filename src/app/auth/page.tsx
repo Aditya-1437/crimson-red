@@ -3,34 +3,94 @@
 import { useState } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { useRouter } from "next/navigation";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import { Mail, Lock, User, Loader2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleAuth = (e: React.FormEvent) => {
+  const { login } = useAuth();
+
+  const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+
+    const form = e.currentTarget;
+    const email = (form.elements.namedItem("email") as HTMLInputElement).value;
+    const password = (form.elements.namedItem("password") as HTMLInputElement).value;
+    const nameInput = form.elements.namedItem("name") as HTMLInputElement | null;
+    const name = nameInput ? nameInput.value : "";
     
-    // Simulate API request
-    setTimeout(() => {
-      setLoading(false);
-      localStorage.setItem("isAuth", "true");
-      document.cookie = "user_role=admin; path=/; max-age=86400;";
+    try {
       if (mode === "login") {
-        toast.success("Welcome back to Crimson Red");
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          toast.error("Access Denied: Invalid Credentials.");
+          setLoading(false);
+          return;
+        }
+
+        if (data.user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", data.user.id)
+            .single();
+
+          const userRole = profile?.role || "reader";
+          login(data.session?.access_token || "", userRole);
+          toast.success("Welcome back to the Chronicles!");
+          router.push("/");
+        }
       } else {
-        toast.success("Welcome to Crimson Red");
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              username: name || email.split("@")[0]
+            }
+          }
+        });
+
+        if (error) {
+          toast.error("Error: " + error.message);
+          setLoading(false);
+          return;
+        }
+
+        if (data.user) {
+          const { error: profileError } = await supabase.from("profiles").insert({
+            id: data.user.id,
+            username: name || email.split("@")[0],
+            role: "reader",
+          });
+
+          if (profileError) {
+            console.error("Profile creation error:", profileError);
+          }
+
+          toast.success("Account created! Redirecting to the Library...");
+          setTimeout(() => {
+            router.push("/");
+          }, 1500);
+        }
       }
-      setTimeout(() => {
-        router.push("/");
-      }, 500);
-    }, 1500);
+    } catch (err: any) {
+      toast.error(err.message || "An unexpected error occurred.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleMode = () => setMode((prev) => (prev === "login" ? "signup" : "login"));

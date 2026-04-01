@@ -4,6 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Image as ImageIcon, CheckCircle2, Save, Send, BookOpen, Layers } from "lucide-react";
 import TipTapEditor from "@/components/TipTapEditor";
+import ImageUpload from "@/components/studio/ImageUpload";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 import { Playfair_Display, Inter } from "next/font/google";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -35,7 +38,55 @@ export default function NewStoryPage() {
   const [seriesSynopsis, setSeriesSynopsis] = useState("");
   
   // Editor
+  const [content, setContent] = useState("");
+  const [coverImage, setCoverImage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  const handlePublish = async () => {
+    if (!title || !genre || !content) {
+      toast.error("Please fill in all required fields (title, genre, and content).");
+      return;
+    }
+
+    setIsPublishing(true);
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        toast.error("You must be logged in to publish a story.");
+        setIsPublishing(false);
+        return;
+      }
+
+      const slug = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+
+      const { error } = await supabase.from('stories').insert({
+        title,
+        slug,
+        genre,
+        content: content, 
+        author_id: user.id,
+        is_published: true,
+        cover_image: coverImage || null,
+      });
+
+      if (error) {
+        if (error.code === '23505') {
+          throw new Error("A story with this title/slug already exists.");
+        }
+        throw error;
+      }
+
+      toast.success("Story published successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "An error occurred while publishing.");
+    } finally {
+      setIsPublishing(false);
+    }
+  };
 
   const handleSave = () => {
     setIsSaving(true);
@@ -109,9 +160,12 @@ export default function NewStoryPage() {
               Next Step <ArrowRight size={16} className="ml-2 shrink-0" />
             </button>
           ) : (
-            <button className="px-6 py-2 bg-crimson text-white text-sm font-bold rounded-full hover:bg-crimson-light transition-all flex items-center shadow-md shadow-crimson/20 hover:shadow-lg hover:shadow-crimson/30 whitespace-nowrap shrink-0">
+            <button 
+              onClick={handlePublish}
+              disabled={isPublishing}
+              className="px-6 py-2 bg-crimson text-white text-sm font-bold rounded-full hover:bg-crimson-light transition-all flex items-center shadow-md shadow-crimson/20 hover:shadow-lg hover:shadow-crimson/30 whitespace-nowrap shrink-0 disabled:opacity-75 disabled:cursor-not-allowed">
               <Send size={16} className="mr-2 md:mr-2 shrink-0" />
-              <span className="hidden md:block">Publish</span>
+              <span className="hidden md:block">{isPublishing ? "Publishing..." : "Publish"}</span>
             </button>
           )}
         </div>
@@ -203,13 +257,11 @@ export default function NewStoryPage() {
                 {/* Cover Image Upload Dropzone */}
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-widest text-slate-500 ml-2">Cover Art (16:9)</label>
-                  <div className="w-full h-48 border-2 border-dashed border-slate-300 rounded-3xl bg-white hover:bg-slate-50 hover:border-crimson/50 transition-colors flex flex-col items-center justify-center cursor-pointer group">
-                    <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 mb-3 group-hover:bg-crimson/10 group-hover:text-crimson group-hover:scale-110 transition-all">
-                      <ImageIcon size={24} />
-                    </div>
-                    <p className="font-bold text-slate-700 text-sm">Click to upload cover image</p>
-                    <p className="text-xs font-medium text-slate-400 mt-1">Recommended size: 1920x1080 (Max 5MB)</p>
-                  </div>
+                  <ImageUpload 
+                    currentImage={coverImage}
+                    onUpload={setCoverImage}
+                    onRemove={() => setCoverImage("")}
+                  />
                 </div>
                 
               </motion.div>
@@ -285,7 +337,7 @@ export default function NewStoryPage() {
                   </button>
                   <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Story Canvas</label>
                 </div>
-                <TipTapEditor />
+                <TipTapEditor content={content} onChange={setContent} />
               </motion.div>
             )}
 

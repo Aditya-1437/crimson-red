@@ -5,25 +5,32 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { User } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const router = useRouter();
+  
+  const { isLoggedIn, user, userProfile, loading, logout } = useAuth();
+  
+  const isAdmin = user?.user_metadata?.role === 'admin' || userProfile?.role === 'admin';
+  console.log("Current User Role:", userProfile?.role);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    logout();
+    setIsMenuOpen(false);
+    router.push("/");
+  };
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
     
-    // Check Auth State
-    const checkAuth = () => {
-      setIsLoggedIn(localStorage.getItem("isAuth") === "true");
-      setIsAdmin(document.cookie.includes("user_role=admin"));
-    };
-    
-    checkAuth();
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -52,7 +59,9 @@ export default function Header() {
           )}
         </nav>
         <div className="flex items-center space-x-4">
-          {isLoggedIn ? (
+          {loading ? (
+             <div className="hidden md:block w-24 h-10 bg-slate-100 rounded-full animate-pulse border border-crimson/5"></div>
+          ) : isLoggedIn ? (
             <div className="relative">
               <button 
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -76,14 +85,7 @@ export default function Header() {
                     Profile
                   </Link>
                   <button 
-                    onClick={() => {
-                      localStorage.removeItem("isAuth");
-                      document.cookie = "user_role=; path=/; max-age=0;";
-                      setIsLoggedIn(false);
-                      setIsAdmin(false);
-                      setIsMenuOpen(false);
-                      window.location.reload();
-                    }}
+                    onClick={handleLogout}
                     className="w-full text-left px-4 py-2 text-sm text-crimson/80 hover:text-crimson hover:bg-crimson/5 font-medium transition-colors"
                   >
                     Logout

@@ -1,84 +1,63 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { Search, SlidersHorizontal } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import StoryCard, { Story } from "@/components/StoryCard";
 import GenreFilter from "@/components/GenreFilter";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/context/AuthContext";
+import { StoryCardSkeleton } from "@/components/ui/Skeletons";
 
-const MOCK_STORIES: Story[] = [
-  {
-    id: "1",
-    title: "The Obsidian Crown",
-    author: "Elena Vance",
-    genre: "Fantasy",
-    excerpt: "A kingdom born of ash and shadow faces its first true test of succession. When the heir apparent gets mysteriously poisoned, the exiled sibling forms an unlikely alliance to reclaim the throne.",
-    coverColor: "bg-stone-800",
-    progress: 45,
-    rank: 1,
-    wordCount: "120k",
-    likes: "14.2k",
-    episodes: 42
-  },
-  {
-    id: "2",
-    title: "Neon Rain",
-    author: "Marcus Thorne",
-    genre: "Sci-Fi",
-    excerpt: "In a city where memories are traded like currency, a disillusioned detective discovers a memory loop that shouldn't exist.",
-    coverColor: "bg-indigo-900",
-    progress: 80,
-    rank: 2,
-    wordCount: "95k",
-    likes: "8.9k",
-    episodes: 24
-  },
-  {
-    id: "3",
-    title: "A Study in Crimson",
-    author: "Sarah Sterling",
-    genre: "Mystery",
-    excerpt: "London, 1891. A string of murders leaves the detectives baffled, until a peculiar consultant steps in.",
-    coverColor: "bg-red-900",
-    rank: 3,
-    wordCount: "82k",
-    likes: "12k",
-    episodes: 31
-  },
-  {
-    id: "4",
-    title: "Whispers of the Deep",
-    author: "Jonah Wright",
-    genre: "Horror",
-    excerpt: "An expedition to the Mariana Trench brings back something that shouldn't be alive.",
-    coverColor: "bg-cyan-950",
-    wordCount: "64k",
-    likes: "5.1k",
-    episodes: 18
-  },
-  {
-    id: "5",
-    title: "Empire of Dirt",
-    author: "Maya Lin",
-    genre: "Historical",
-    excerpt: "The true story of the rebellion that brought an empire to its knees.",
-    coverColor: "bg-amber-900",
-    wordCount: "110k",
-    likes: "9.3k",
-    episodes: 36
-  }
-];
+
 
 export default function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [isFetchingStories, setIsFetchingStories] = useState(true);
+  const { loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    async function fetchStories() {
+      try {
+        const { data, error } = await supabase
+          .from('stories')
+          .select('*')
+          .eq('is_published', true)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (data) {
+          const formatted = data.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            author: item.author_name || "Author",
+            genre: item.genre || "Fiction",
+            slug: item.slug,
+            excerpt: item.content?.substring ? item.content.substring(0, 160) + "..." : "A new story awaits...",
+            coverColor: "bg-stone-900"
+          }));
+          setStories(formatted as Story[]);
+        }
+      } catch (error) {
+        console.error("Error fetching stories:", error);
+      } finally {
+        setIsFetchingStories(false);
+      }
+    }
+    fetchStories();
+  }, []);
+
+  const loading = authLoading || isFetchingStories;
 
   // Computed state
-  const journeys = MOCK_STORIES.filter(s => s.progress);
-  const trending = MOCK_STORIES.filter(s => s.rank).sort((a,b) => (a.rank || 0) - (b.rank || 0));
-  const newReleases = MOCK_STORIES;
+  const journeys = stories;
+  const trending = stories;
+  const newReleases = stories;
 
   return (
     <div className="bg-white min-h-screen flex flex-col pt-32">
@@ -178,9 +157,16 @@ export default function LibraryPage() {
               <button className="text-sm font-bold text-crimson/60 uppercase tracking-widest hover:text-crimson transition-colors">View All</button>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {journeys.map(story => (
-                <StoryCard key={story.id} story={story} variant="journey" />
-              ))}
+              {loading ? (
+                <>
+                  <StoryCardSkeleton />
+                  <StoryCardSkeleton />
+                </>
+              ) : (
+                journeys.map(story => (
+                  <StoryCard key={story.id} story={story} variant="journey" />
+                ))
+              )}
             </div>
           </section>
 
@@ -190,9 +176,17 @@ export default function LibraryPage() {
               <span className="text-sm font-medium text-crimson/60">Updated hourly</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {trending.map(story => (
-                <StoryCard key={story.id} story={story} variant="trending" />
-              ))}
+              {loading ? (
+                <>
+                  <StoryCardSkeleton />
+                  <StoryCardSkeleton />
+                  <StoryCardSkeleton />
+                </>
+              ) : (
+                trending.map(story => (
+                  <StoryCard key={story.id} story={story} variant="trending" />
+                ))
+              )}
             </div>
           </section>
 
@@ -202,9 +196,18 @@ export default function LibraryPage() {
               <button className="text-sm font-bold text-crimson/60 uppercase tracking-widest hover:text-crimson transition-colors">See the Legends</button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {newReleases.map(story => (
-                <StoryCard key={story.id} story={story} variant="grid" />
-              ))}
+              {loading ? (
+                <>
+                  <StoryCardSkeleton />
+                  <StoryCardSkeleton />
+                  <StoryCardSkeleton />
+                  <StoryCardSkeleton />
+                </>
+              ) : (
+                newReleases.map(story => (
+                  <StoryCard key={story.id} story={story} variant="grid" />
+                ))
+              )}
             </div>
           </section>
         </div>

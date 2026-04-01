@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Outfit, Cormorant_Garamond } from "next/font/google";
-import ToasterProvider from "@/components/ToasterProvider";
 import MouseButterfly from "@/components/MouseButterfly";
+import { Toaster } from "sonner";
+import { AuthProvider } from "@/context/AuthContext";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -31,9 +32,11 @@ export default function RootLayout({
       className={`${outfit.variable} ${cormorant.variable} h-full scroll-smooth`}
     >
       <body className="min-h-full flex flex-col font-sans bg-white text-crimson selection:bg-crimson/20">
-        <ToasterProvider />
-        <MouseButterfly />
-        {children}
+        <AuthProvider>
+          <Toaster position="bottom-right" expand={false} richColors />
+          <MouseButterfly />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

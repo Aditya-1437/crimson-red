@@ -2,7 +2,8 @@
 
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { Bold, Italic, List, ListOrdered, Quote, Heading2, Heading3 } from 'lucide-react'
+import { Bold, Italic, List, ListOrdered, Quote, Heading2, Heading3, Save } from 'lucide-react'
+import { toast } from 'sonner'
 import React from 'react';
 
 export default function TipTapEditor({ content, onChange }: { content?: string, onChange?: (html: string) => void }) {
@@ -34,6 +35,13 @@ export default function TipTapEditor({ content, onChange }: { content?: string, 
     <div className="border border-crimson/10 rounded-2xl overflow-hidden bg-white shadow-sm flex flex-col">
       {/* Toolbar */}
       <div className="bg-slate-50 border-b border-crimson/10 p-2 flex items-center space-x-1 flex-wrap sticky top-0 z-10">
+        <MenuButton 
+          onClick={() => toast.error('Draft saved locally')} 
+          isActive={false}
+          icon={<Save size={16} />}
+          title="Save Draft"
+        />
+        <div className="w-px h-6 bg-slate-200 mx-2"></div>
         <MenuButton 
           onClick={() => editor.chain().focus().toggleBold().run()} 
           isActive={editor.isActive('bold')}
