@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, Inbox } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import StoryCard, { Story } from "@/components/StoryCard";
@@ -10,38 +11,75 @@ import GenreFilter from "@/components/GenreFilter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { StoryCardSkeleton } from "@/components/ui/Skeletons";
-
-
+import SearchBar from "@/components/ui/SearchBar";
 
 export default function LibraryPage() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const searchParams = useSearchParams();
+  const query = searchParams.get("q") || "";
+  
   const [showFilters, setShowFilters] = useState(false);
-  const [stories, setStories] = useState<Story[]>([]);
+  const [standalones, setStandalones] = useState<Story[]>([]);
+  const [series, setSeries] = useState<Story[]>([]);
   const [isFetchingStories, setIsFetchingStories] = useState(true);
   const { loading: authLoading } = useAuth();
 
   useEffect(() => {
     async function fetchStories() {
       try {
-        const { data, error } = await supabase
+        setIsFetchingStories(true);
+        
+        let stQuery = supabase
           .from('stories')
           .select('*')
-          .eq('is_published', true)
-          .order('created_at', { ascending: false });
+          .is('series_id', null)
+          .eq('is_published', true);
+          
+        let srQuery = supabase
+          .from('series')
+          .select('*');
 
-        if (error) throw error;
+        if (query) {
+          const filter = `title.ilike.%${query}%,genre.ilike.%${query}%`;
+          stQuery = stQuery.or(filter);
+          srQuery = srQuery.or(filter);
+        }
 
-        if (data) {
-          const formatted = data.map((item: any) => ({
+        const [stResult, srResult] = await Promise.all([
+          stQuery.order('created_at', { ascending: false }),
+          srQuery.order('created_at', { ascending: false })
+        ]);
+
+        if (stResult.error) throw stResult.error;
+        if (srResult.error) throw srResult.error;
+
+        if (stResult.data) {
+          const formattedStories = stResult.data.map((item: any) => ({
             id: item.id,
             title: item.title,
             author: item.author_name || "Author",
             genre: item.genre || "Fiction",
             slug: item.slug,
             excerpt: item.content?.substring ? item.content.substring(0, 160) + "..." : "A new story awaits...",
-            coverColor: "bg-stone-900"
+            coverColor: "bg-stone-900",
+            coverImage: item.cover_image,
+            type: "story"
           }));
-          setStories(formatted as Story[]);
+          setStandalones(formattedStories as Story[]);
+        }
+
+        if (srResult.data) {
+          const formattedSeries = srResult.data.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            author: item.author_name || "Author",
+            genre: item.genre || "Collection",
+            slug: item.slug,
+            excerpt: item.synopsis?.substring ? item.synopsis.substring(0, 160) + "..." : "Begin an epic journey...",
+            coverColor: "bg-slate-900",
+            coverImage: item.cover_image,
+            type: "series"
+          }));
+          setSeries(formattedSeries as Story[]);
         }
       } catch (error) {
         console.error("Error fetching stories:", error);
@@ -50,14 +88,9 @@ export default function LibraryPage() {
       }
     }
     fetchStories();
-  }, []);
+  }, [query]);
 
   const loading = authLoading || isFetchingStories;
-
-  // Computed state
-  const journeys = stories;
-  const trending = stories;
-  const newReleases = stories;
 
   return (
     <div className="bg-white min-h-screen flex flex-col pt-32">
@@ -72,16 +105,7 @@ export default function LibraryPage() {
           </p>
           
           <div className="relative flex items-center w-full mt-8">
-            <div className="relative flex-grow">
-              <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-crimson/40" size={20} />
-              <input 
-                type="text"
-                placeholder="Search by title, author, or genre..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white border-2 border-crimson/20 rounded-full py-4 pl-14 pr-6 text-crimson placeholder:text-crimson/30 outline-none transition-all duration-300 focus:border-crimson focus:ring-4 focus:ring-crimson/10 focus:shadow-[0_0_20px_rgba(153,0,0,0.15)]"
-              />
-            </div>
+            <SearchBar className="flex-grow" />
             <button 
               onClick={() => setShowFilters(!showFilters)}
               className={`ml-4 p-4 rounded-full border-2 transition-all duration-300 flex-shrink-0 ${
@@ -144,72 +168,88 @@ export default function LibraryPage() {
         </section>
 
         <div className="space-y-20">
-          <section>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-serif font-bold text-crimson">Explore Genres</h2>
-            </div>
-            <GenreFilter />
-          </section>
+          {!query && (
+            <section>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-serif font-bold text-crimson">Explore Genres</h2>
+              </div>
+              <GenreFilter />
+            </section>
+          )}
 
-          <section>
-             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-serif font-bold text-crimson">Your Journey</h2>
-              <button className="text-sm font-bold text-crimson/60 uppercase tracking-widest hover:text-crimson transition-colors">View All</button>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {loading ? (
-                <>
-                  <StoryCardSkeleton />
-                  <StoryCardSkeleton />
-                </>
-              ) : (
-                journeys.map(story => (
-                  <StoryCard key={story.id} story={story} variant="journey" />
-                ))
-              )}
-            </div>
-          </section>
+          {/* Search results or sections */}
+          <div className="space-y-16">
+            {(loading || series.length > 0) && (
+              <section>
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-3xl font-serif font-bold text-crimson">The Epics <span className="text-xl font-medium text-crimson/60 ml-2 font-sans tracking-wide">(Series)</span></h2>
+                  {!query && <button className="text-sm font-bold text-crimson/60 uppercase tracking-widest hover:text-crimson transition-colors">View All Epics</button>}
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {loading ? (
+                    <>
+                      <StoryCardSkeleton />
+                      <StoryCardSkeleton />
+                    </>
+                  ) : (
+                    series.map(epic => (
+                      <StoryCard key={epic.id} story={epic} variant="journey" />
+                    ))
+                  )}
+                </div>
+              </section>
+            )}
 
-          <section>
-             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-serif font-bold text-crimson">The Rising Tide</h2>
-              <span className="text-sm font-medium text-crimson/60">Updated hourly</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {loading ? (
-                <>
-                  <StoryCardSkeleton />
-                  <StoryCardSkeleton />
-                  <StoryCardSkeleton />
-                </>
-              ) : (
-                trending.map(story => (
-                  <StoryCard key={story.id} story={story} variant="trending" />
-                ))
-              )}
-            </div>
-          </section>
+            {(loading || standalones.length > 0) && (
+              <section>
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-3xl font-serif font-bold text-crimson">Short Reads <span className="text-xl font-medium text-crimson/60 ml-2 font-sans tracking-wide">(Standalones)</span></h2>
+                  {!query && <button className="text-sm font-bold text-crimson/60 uppercase tracking-widest hover:text-crimson transition-colors">See Latest</button>}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {loading ? (
+                    <>
+                      <StoryCardSkeleton />
+                      <StoryCardSkeleton />
+                      <StoryCardSkeleton />
+                      <StoryCardSkeleton />
+                    </>
+                  ) : (
+                    standalones.map(story => (
+                      <StoryCard key={story.id} story={story} variant="grid" />
+                    ))
+                  )}
+                </div>
+              </section>
+            )}
 
-          <section>
-             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-serif font-bold text-crimson">Hall of Fame</h2>
-              <button className="text-sm font-bold text-crimson/60 uppercase tracking-widest hover:text-crimson transition-colors">See the Legends</button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {loading ? (
-                <>
-                  <StoryCardSkeleton />
-                  <StoryCardSkeleton />
-                  <StoryCardSkeleton />
-                  <StoryCardSkeleton />
-                </>
-              ) : (
-                newReleases.map(story => (
-                  <StoryCard key={story.id} story={story} variant="grid" />
-                ))
-              )}
-            </div>
-          </section>
+            {!loading && query && series.length === 0 && standalones.length === 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center py-20 px-6 bg-crimson/5 rounded-[3rem] border-2 border-dashed border-crimson/10 max-w-2xl mx-auto"
+              >
+                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                  <Inbox className="text-crimson/40" size={32} />
+                </div>
+                <h2 className="text-2xl font-serif font-bold text-crimson mb-2">The archives remain silent</h2>
+                <p className="text-crimson/60 font-medium">
+                  No chronicles found matching "<span className="text-crimson">{query}</span>". 
+                </p>
+                <button 
+                  onClick={() => {
+                    const params = new URLSearchParams(window.location.search);
+                    params.delete("q");
+                    window.history.pushState({}, '', `${window.location.pathname}`);
+                    window.location.reload(); // Hard reload to clear query
+                  }}
+                  className="mt-8 text-sm font-bold uppercase tracking-widest text-crimson hover:underline"
+                >
+                  Clear search
+                </button>
+              </motion.div>
+            )}
+          </div>
         </div>
       </main>
       

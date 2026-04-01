@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { BookOpen, Users, MessageSquare, Plus } from "lucide-react";
+import { BookOpen, Users, MessageSquare, Plus, Layers } from "lucide-react";
+import LoadingButton from "@/components/ui/LoadingButton";
 
 export default function StudioDashboard() {
   return (
@@ -13,13 +14,29 @@ export default function StudioDashboard() {
         </div>
         
         <div className="flex items-center space-x-4">
-          <Link href="/studio/new-blog" className="px-5 py-2.5 bg-white border border-crimson/20 text-crimson font-bold rounded-full text-sm hover:bg-crimson/5 transition-colors shadow-sm tracking-wide hidden sm:block">
+          <LoadingButton 
+            href="/studio/new-blog" 
+            loadingText="Preparing Forge..."
+            className="px-5 py-2.5 bg-white border border-crimson/20 text-crimson font-bold rounded-full text-sm hover:bg-crimson/5 transition-colors shadow-sm tracking-wide hidden sm:flex"
+          >
             + New Blog
-          </Link>
-          <Link href="/studio/new" className="px-6 py-2.5 bg-crimson text-white font-bold rounded-full text-sm hover:bg-crimson-light transition-colors shadow-[0_4px_14px_rgba(153,0,0,0.3)] hover:shadow-[0_6px_20px_rgba(153,0,0,0.4)] flex items-center space-x-2 tracking-wide">
+          </LoadingButton>
+          <LoadingButton 
+            href="/studio/new" 
+            loadingText="Inking..."
+            className="px-5 py-2.5 bg-white border border-crimson/20 text-crimson font-bold rounded-full text-sm hover:bg-crimson/5 transition-colors shadow-sm flex items-center space-x-2 tracking-wide"
+          >
             <Plus size={16} />
-            <span>New Story</span>
-          </Link>
+            <span>Write Standalone Story</span>
+          </LoadingButton>
+          <LoadingButton 
+            href="/studio/series/new" 
+            loadingText="Designing Epic..."
+            className="px-6 py-2.5 bg-crimson text-white font-bold rounded-full text-sm hover:bg-crimson-light transition-colors shadow-[0_4px_14px_rgba(153,0,0,0.3)] hover:shadow-[0_6px_20px_rgba(153,0,0,0.4)] flex items-center space-x-2 tracking-wide"
+          >
+            <Layers size={16} />
+            <span>Create New Series</span>
+          </LoadingButton>
         </div>
       </div>
 

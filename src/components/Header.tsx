@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User } from "lucide-react";
+import { User, X } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
   
   const { isLoggedIn, user, userProfile, loading, logout } = useAuth();
@@ -23,6 +24,7 @@ export default function Header() {
     await supabase.auth.signOut();
     logout();
     setIsMenuOpen(false);
+    setIsMobileMenuOpen(false);
     router.push("/");
   };
 
@@ -101,13 +103,83 @@ export default function Header() {
               Sign In
             </Link>
           )}
-          <button className="md:hidden text-crimson hover:text-crimson-light">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-            </svg>
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden text-crimson hover:text-crimson-light focus:outline-none"
+          >
+            {isMobileMenuOpen ? (
+              <X className="w-8 h-8" />
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+              </svg>
+            )}
           </button>
         </div>
       </div>
+      
+      {/* Mobile Menu Dropdown */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -20 }}
+            transition={{ duration: 0.2 }}
+            className="absolute top-full left-0 right-0 mt-4 bg-white rounded-3xl shadow-[0_20px_50px_rgba(153,0,0,0.15)] border border-crimson/10 overflow-hidden md:hidden z-50"
+          >
+            <div className="flex flex-col py-4 px-6 space-y-4">
+              {["Stories", "Blogs", "Updates"].map((item) => (
+                <Link
+                  key={item}
+                  href={`/${item.toLowerCase()}`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="text-crimson/80 hover:text-crimson font-medium text-lg tracking-wide border-b border-crimson/5 pb-2 inline-block pt-2"
+                >
+                  {item}
+                </Link>
+              ))}
+              {isAdmin && (
+                <Link
+                  href="/studio"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="text-crimson/80 hover:text-crimson font-medium text-lg tracking-wide border-b border-crimson/5 pb-2 inline-block pt-2"
+                >
+                  Studio
+                </Link>
+              )}
+              
+              <div className="pt-4 flex flex-col space-y-4">
+                {isLoggedIn ? (
+                  <>
+                    <Link
+                      href="/profile"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="w-full py-3 bg-crimson/5 text-crimson rounded-xl font-semibold text-center hover:bg-crimson/10 transition-colors"
+                    >
+                      My Profile
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full py-3 bg-white text-crimson border-2 border-crimson/20 rounded-xl font-semibold hover:bg-crimson/5 hover:border-crimson transition-colors"
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    href="/auth"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="w-full py-3 bg-crimson text-white rounded-xl font-semibold text-center shadow-lg shadow-crimson/20 tracking-widest uppercase text-sm"
+                  >
+                    Sign In
+                  </Link>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.header>
   );
 }

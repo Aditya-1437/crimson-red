@@ -8,6 +8,8 @@ import Breadcrumbs from "@/components/Breadcrumbs";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import StoryRenderer from "@/components/StoryRenderer";
 import { notFound } from "next/navigation";
+import LoadingButton from "@/components/ui/LoadingButton";
+import ReaderHeartbeat from "@/components/ReaderHeartbeat";
 
 const merriweather = Merriweather({
   weight: ["300", "400", "700"],
@@ -28,7 +30,7 @@ export default async function ReaderSanctuary({ params }: ReaderSanctuaryProps) 
 
   const { data: story, error } = await supabase
     .from('stories')
-    .select('*')
+    .select('*, series:series_id(title, slug)')
     .eq('slug', slug)
     .single();
 
@@ -39,17 +41,48 @@ export default async function ReaderSanctuary({ params }: ReaderSanctuaryProps) 
     notFound();
   }
 
+  // Fetch adjacent chapters if it's part of a series
+  let prevChapter = null;
+  let nextChapter = null;
+
+  if (story.series_id && story.chapter_number) {
+    const { data: prevData } = await supabase
+      .from('stories')
+      .select('slug, title')
+      .eq('series_id', story.series_id)
+      .eq('chapter_number', story.chapter_number - 1)
+      .single();
+    prevChapter = prevData;
+
+    const { data: nextData } = await supabase
+      .from('stories')
+      .select('slug, title')
+      .eq('series_id', story.series_id)
+      .eq('chapter_number', story.chapter_number + 1)
+      .single();
+    nextChapter = nextData;
+  }
+
   return (
     <div className={`bg-white min-h-screen flex flex-col ${merriweather.variable} selection:bg-crimson/20`}>
       {/* Sticky Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-crimson/10 py-3 md:py-0 md:h-[72px]">
         <div className="container mx-auto px-6 h-full flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-0">
-          <Breadcrumbs 
-            items={[
-              { label: "Library", href: "/stories" },
-              { label: story.title as string }
-            ]} 
-          />
+          <div className="flex items-center">
+            {story.series ? (
+              <Link href={`/series/${story.series.slug}`} className="flex items-center space-x-2 text-crimson/60 hover:text-crimson font-black tracking-[0.1em] uppercase text-xs transition-colors group">
+                <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
+                <span>Back to {story.series.title}</span>
+              </Link>
+            ) : (
+              <Breadcrumbs 
+                items={[
+                  { label: "Library", href: "/stories" },
+                  { label: story.title as string }
+                ]} 
+              />
+            )}
+          </div>
           
           <div className="hidden md:flex flex-col items-center">
             <h1 className="font-serif font-bold text-crimson text-lg">{story.title}</h1>
@@ -105,13 +138,34 @@ export default async function ReaderSanctuary({ params }: ReaderSanctuaryProps) 
 
           {/* Post-Reading Actions */}
           <div className="mt-32 flex flex-col md:flex-row justify-between items-center border-t border-crimson/10 pt-16 gap-8">
-            <Link href="/stories" className="flex items-center space-x-3 text-crimson/60 hover:text-crimson font-black tracking-[0.2em] uppercase text-[10px] transition-all group">
+            <LoadingButton 
+              href="/stories" 
+              loadingText="Returning..."
+              className="flex items-center space-x-3 text-crimson/60 hover:text-crimson font-black tracking-[0.2em] uppercase text-[10px] transition-all group"
+            >
               <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
               <span>Return to Library</span>
-            </Link>
+            </LoadingButton>
             
-            <div className="flex items-center space-x-4">
-               {/* Future pagination or sharing buttons */}
+            <div className="flex flex-col md:flex-row w-full md:w-auto items-center space-y-4 md:space-y-0 md:space-x-4">
+               {prevChapter && (
+                 <LoadingButton 
+                   href={`/stories/${prevChapter.slug}`} 
+                   loadingText="Flipping Back..."
+                   className="w-full md:w-40 px-8 py-3 border-2 border-crimson/20 text-crimson text-xs uppercase tracking-[0.2em] font-black rounded-full hover:border-crimson hover:bg-crimson/5 transition-all text-center"
+                 >
+                   &larr; Prev
+                 </LoadingButton>
+               )}
+               {nextChapter && (
+                 <LoadingButton 
+                   href={`/stories/${nextChapter.slug}`} 
+                   loadingText="Next Page..."
+                   className="w-full md:w-40 px-8 py-3 bg-crimson text-white text-xs uppercase tracking-[0.2em] font-black rounded-full hover:bg-crimson-light transition-all shadow-xl shadow-crimson/20 hover:shadow-crimson/30 hover:scale-[1.02] active:scale-[0.98] text-center"
+                 >
+                   Next &rarr;
+                 </LoadingButton>
+               )}
             </div>
           </div>
         </article>
@@ -122,6 +176,9 @@ export default async function ReaderSanctuary({ params }: ReaderSanctuaryProps) 
         <CommentSection />
         <Footer />
       </div>
+
+      {/* Persistence Heartbeat */}
+      <ReaderHeartbeat storyId={story.id} seriesId={story.series_id} />
     </div>
   );
 }

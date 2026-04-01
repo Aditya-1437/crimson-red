@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Upload, X, Loader2 } from "lucide-react";
 import Image from "next/image";
-import { uploadImage } from "@/lib/supabase";
 import { toast } from "sonner";
 
 interface ImageUploadProps {
@@ -26,8 +25,21 @@ export default function ImageUpload({ onUpload, onRemove, currentImage }: ImageU
 
     setIsUploading(true);
     try {
-      const url = await uploadImage(file);
-      onUpload(url);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Upload failed");
+      }
+
+      const data = await res.json();
+      onUpload(data.url);
       toast.success("Image uploaded successfully!");
     } catch (error: any) {
       console.error(error);
