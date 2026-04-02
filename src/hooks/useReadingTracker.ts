@@ -16,6 +16,7 @@ export function useReadingTracker(storyId: string, seriesId?: string | null) {
   // Refs to store current values for background sync (avoiding stale closures in setInterval)
   const timeSpentRef = useRef(0);
   const scrollProgressRef = useRef(0);
+  const lastSyncedTimeRef = useRef(0);
 
   // Sync helper function
   const syncProgress = async (finalData?: { time: number, scroll: number }) => {
@@ -25,14 +26,31 @@ export function useReadingTracker(storyId: string, seriesId?: string | null) {
     const s = finalData ? finalData.scroll : scrollProgressRef.current;
 
     try {
-      await supabase.from('reading_progress').upsert({
-        user_id: user.id,
-        story_id: storyId,
-        series_id: seriesId || null,
-        progress_percentage: Math.round(s),
-        time_spent_seconds: t,
-        last_read_at: new Date().toISOString()
-      }, { onConflict: 'user_id, story_id' });
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const secondsSinceLastSync = t - lastSyncedTimeRef.current;
+
+      // Parallel sync: 1. Main reading progress, 2. Daily aggregate log
+      await Promise.all([
+        supabase.from('reading_progress').upsert({
+          user_id: user.id,
+          story_id: storyId,
+          series_id: seriesId || null,
+          progress_percentage: Math.round(s),
+          time_spent_seconds: t,
+          last_read_at: new Date().toISOString()
+        }, { onConflict: 'user_id, story_id' }),
+        
+        // Only increment if there's actual new time logged
+        ...(secondsSinceLastSync > 0 ? [
+          supabase.rpc('increment_daily_reading_time', {
+            p_user_id: user.id,
+            p_read_date: today,
+            p_seconds_to_add: secondsSinceLastSync
+          })
+        ] : [])
+      ]);
+
+      lastSyncedTimeRef.current = t;
     } catch (err) {
       console.error("Heartbeat: Progress synchronization failed", err);
     }

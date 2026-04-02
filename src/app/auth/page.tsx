@@ -9,10 +9,13 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { ValidationPopup } from "@/components/ui/ValidationPopup";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
+  const [validationMessage, setValidationMessage] = useState("");
   const router = useRouter();
 
   const { login } = useAuth();
@@ -26,6 +29,48 @@ export default function AuthPage() {
     const password = (form.elements.namedItem("password") as HTMLInputElement).value;
     const nameInput = form.elements.namedItem("name") as HTMLInputElement | null;
     const name = nameInput ? nameInput.value : "";
+
+    // --- Validation Logic ---
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setValidationMessage("Please provide a valid sanctuary address (email).");
+      setShowValidation(true);
+      setLoading(false);
+      return;
+    }
+
+    if (mode === "signup") {
+      const hasMinLength = password.length > 6;
+      const hasLowercase = /[a-z]/.test(password);
+      const hasNumber = /[0-9]/.test(password);
+      const hasUppercase = /[A-Z]/.test(password);
+
+      if (!hasMinLength) {
+        setValidationMessage("Your key must be longer than 6 characters.");
+        setShowValidation(true);
+        setLoading(false);
+        return;
+      }
+      if (!hasLowercase) {
+        setValidationMessage("Your key must include at least one small letter (a-z).");
+        setShowValidation(true);
+        setLoading(false);
+        return;
+      }
+      if (!hasNumber) {
+        setValidationMessage("Your key must include at least one number (0-9).");
+        setShowValidation(true);
+        setLoading(false);
+        return;
+      }
+      if (hasUppercase) {
+        setValidationMessage("Capital letters are not allowed in your key.");
+        setShowValidation(true);
+        setLoading(false);
+        return;
+      }
+    }
+    // ------------------------
     
     try {
       if (mode === "login") {
@@ -255,6 +300,12 @@ export default function AuthPage() {
           </AnimatePresence>
         </div>
       </div>
+
+      <ValidationPopup 
+        isOpen={showValidation} 
+        onClose={() => setShowValidation(false)} 
+        message={validationMessage} 
+      />
     </div>
   );
 }
