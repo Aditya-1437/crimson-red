@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import { Heart, Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -44,11 +47,25 @@ const featuredStories = [
 
 export default function FeaturedChronicles({
   title = "Featured Chronicles",
-  subtitle = "Discover"
+  subtitle = "Discover",
+  onRequireAuth
 }: {
   title?: string;
   subtitle?: string;
+  onRequireAuth?: () => void;
 }) {
+  const router = useRouter();
+  const { isLoggedIn } = useAuth();
+
+  const handleReadClick = (id: string | number) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isLoggedIn) {
+      router.push(`/stories/${id}`);
+    } else {
+      if (onRequireAuth) onRequireAuth();
+    }
+  };
+
   return (
     <section id="stories" className="py-20 md:py-32 bg-white">
       <div className="container mx-auto px-6 md:px-12">
@@ -84,7 +101,7 @@ export default function FeaturedChronicles({
               className="relative min-w-[320px] md:min-w-[400px] w-full snap-start group cursor-pointer flex flex-col"
             >
               {/* Image Container */}
-              <Link href={`/stories/${story.id}`}>
+              <div onClick={handleReadClick(story.id)} className="w-full text-left cursor-pointer">
                 <div className="relative h-[480px] w-full overflow-hidden rounded-[2.5rem] mb-8 border border-crimson/10 shadow-[0_10px_30px_rgb(153,0,0,0.05)] transition-all duration-500 group-hover:shadow-[0_20px_50px_rgb(153,0,0,0.15)] group-hover:-translate-y-2">
                 <Image
                   src={story.image}
@@ -100,11 +117,14 @@ export default function FeaturedChronicles({
                 </div>
 
                 {/* Heart Action */}
-                <button className="absolute top-6 right-6 p-3 bg-white/90 backdrop-blur-md rounded-full text-crimson hover:bg-crimson hover:text-white shadow-md transition-colors focus:outline-none">
+                <button 
+                  onClick={(e) => e.stopPropagation()} 
+                  className="absolute top-6 right-6 p-3 bg-white/90 backdrop-blur-md rounded-full text-crimson hover:bg-crimson hover:text-white shadow-md transition-colors focus:outline-none z-20"
+                >
                   <Heart size={22} className="transition-transform active:scale-90" />
                 </button>
+                </div>
               </div>
-              </Link>
 
               {/* Content Below Image */}
               <div className="flex flex-col px-2">
@@ -123,9 +143,12 @@ export default function FeaturedChronicles({
                     <Star size={18} fill="currentColor" />
                     <span className="text-crimson font-bold">{story.rating}</span>
                   </div>
-                  <Link href={`/stories/${story.id}`} className="text-crimson font-bold uppercase tracking-widest text-sm hover:text-crimson-light flex items-center">
+                  <button 
+                    onClick={handleReadClick(story.id)}
+                    className="text-crimson font-bold uppercase tracking-widest text-sm hover:text-crimson-light flex items-center"
+                  >
                     Read Now <span className="ml-2">→</span>
-                  </Link>
+                  </button>
                 </div>
               </div>
             </motion.div>

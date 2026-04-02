@@ -2,6 +2,8 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import { BookOpen, Heart, Clock } from "lucide-react";
 
 export interface Story {
@@ -24,10 +26,22 @@ export interface Story {
 interface StoryCardProps {
   story: Story;
   variant?: "journey" | "trending" | "grid";
+  onRequireAuth?: () => void;
 }
 
-export default function StoryCard({ story, variant = "grid" }: StoryCardProps) {
+export default function StoryCard({ story, variant = "grid", onRequireAuth }: StoryCardProps) {
+  const router = useRouter();
+  const { isLoggedIn } = useAuth();
   const destination = story.type === "series" ? `/series/${story.slug}` : `/stories/${story.slug}`;
+
+  const handleReadClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isLoggedIn) {
+      router.push(destination);
+    } else {
+      if (onRequireAuth) onRequireAuth();
+    }
+  };
 
   if (variant === "journey") {
     return (
@@ -58,12 +72,12 @@ export default function StoryCard({ story, variant = "grid" }: StoryCardProps) {
             </div>
           </div>
         </div>
-        <Link 
-          href={destination}
+        <button 
+          onClick={handleReadClick}
           className="mt-4 md:mt-0 w-full md:w-auto px-6 py-2 bg-crimson text-white rounded-full text-sm font-semibold tracking-wider hover:bg-crimson/90 transition-colors text-center whitespace-nowrap"
         >
           {story.type === "series" ? "Start Series" : "Continue"}
-        </Link>
+        </button>
       </motion.div>
     );
   }
@@ -86,12 +100,12 @@ export default function StoryCard({ story, variant = "grid" }: StoryCardProps) {
           <h3 className="text-xl font-serif font-semibold text-crimson mt-2 mb-1">{story.title}</h3>
           <p className="text-sm text-crimson/60">{story.author}</p>
           <p className="text-crimson/80 text-sm line-clamp-2 mt-4">{story.excerpt}</p>
-          <Link 
-            href={destination}
-            className="inline-block mt-6 text-sm font-bold text-crimson tracking-wider uppercase hover:text-crimson-light transition-colors"
+          <button 
+            onClick={handleReadClick}
+            className="inline-block mt-6 text-sm font-bold text-crimson tracking-wider uppercase hover:text-crimson-light transition-colors text-left"
           >
             {story.type === "series" ? "View Epic \u2192" : "Read Now \u2192"}
-          </Link>
+          </button>
         </div>
       </motion.div>
     );
@@ -127,9 +141,9 @@ export default function StoryCard({ story, variant = "grid" }: StoryCardProps) {
           </div>
         </div>
       </div>
-      <Link href={destination} className="absolute inset-0 z-10">
+      <button onClick={handleReadClick} className="absolute inset-0 z-10">
         <span className="sr-only">View {story.title}</span>
-      </Link>
+      </button>
     </motion.div>
   );
 }

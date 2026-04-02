@@ -7,19 +7,21 @@ import TheInkwell from "@/components/TheInkwell";
 import About from "@/components/About";
 import Newsletter from "@/components/Newsletter";
 import Footer from "@/components/Footer";
-import Ongoing from "@/components/Ongoing";
+import DashboardHero from "@/components/DashboardHero";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
+import AuthGateModal from "@/components/ui/AuthGateModal";
 
 export default function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isLoggedIn, loading } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [showAuthGate, setShowAuthGate] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    setIsLoggedIn(localStorage.getItem("isAuth") === "true");
   }, []);
 
-  if (!mounted) {
+  if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-crimson border-t-transparent rounded-full animate-spin"></div>
@@ -34,10 +36,11 @@ export default function Home() {
       {isLoggedIn ? (
         // --- LOGGED IN DASHBOARD VIEW ---
         <main className="space-y-6 pb-12 px-4 md:px-8 min-h-screen">
-          <Ongoing />
+          <DashboardHero onRequireAuth={() => setShowAuthGate(true)} />
           <FeaturedChronicles 
             title="Most Popular Stories" 
             subtitle="Trending Worldwide" 
+            onRequireAuth={() => setShowAuthGate(true)}
           />
           <TheInkwell 
             title="Popular Blogs" 
@@ -71,7 +74,7 @@ export default function Home() {
           </section>
 
           <main className="space-y-6 pb-12 px-4 md:px-8">
-            <FeaturedChronicles />
+            <FeaturedChronicles onRequireAuth={() => setShowAuthGate(true)} />
             <About />
             <TheInkwell />
             <Newsletter />
@@ -80,6 +83,7 @@ export default function Home() {
       )}
 
       <Footer />
+      <AuthGateModal isOpen={showAuthGate} onClose={() => setShowAuthGate(false)} />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { StoryCardSkeleton } from "@/components/ui/Skeletons";
 import SearchBar from "@/components/ui/SearchBar";
+import AuthGateModal from "@/components/ui/AuthGateModal";
 
 export default function LibraryPage() {
   const searchParams = useSearchParams();
@@ -21,6 +22,7 @@ export default function LibraryPage() {
   const [standalones, setStandalones] = useState<Story[]>([]);
   const [series, setSeries] = useState<Story[]>([]);
   const [isFetchingStories, setIsFetchingStories] = useState(true);
+  const [showAuthGate, setShowAuthGate] = useState(false);
   const { loading: authLoading } = useAuth();
 
   useEffect(() => {
@@ -193,7 +195,12 @@ export default function LibraryPage() {
                     </>
                   ) : (
                     series.map(epic => (
-                      <StoryCard key={epic.id} story={epic} variant="journey" />
+                      <StoryCard 
+                        key={epic.id} 
+                        story={epic} 
+                        variant="journey" 
+                        onRequireAuth={() => setShowAuthGate(true)} 
+                      />
                     ))
                   )}
                 </div>
@@ -216,7 +223,12 @@ export default function LibraryPage() {
                     </>
                   ) : (
                     standalones.map(story => (
-                      <StoryCard key={story.id} story={story} variant="grid" />
+                      <StoryCard 
+                        key={story.id} 
+                        story={story} 
+                        variant="grid" 
+                        onRequireAuth={() => setShowAuthGate(true)} 
+                      />
                     ))
                   )}
                 </div>
@@ -256,6 +268,8 @@ export default function LibraryPage() {
       <div className="mt-auto">
         <Footer />
       </div>
+
+      <AuthGateModal isOpen={showAuthGate} onClose={() => setShowAuthGate(false)} />
     </div>
   );
 }

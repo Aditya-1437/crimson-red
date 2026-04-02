@@ -9,6 +9,8 @@ import LoadingButton from "@/components/ui/LoadingButton";
 import { Loader2, Clock, BookOpen, Bookmark, ChevronRight, Award } from "lucide-react";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
+import { ReadingProgress } from "@/types/reading";
+import ContinueReadingCard from "@/components/ContinueReadingCard";
 
 const UserAnalytics = dynamic(() => import("@/components/profile/UserAnalytics"), { 
   ssr: false,
@@ -16,36 +18,6 @@ const UserAnalytics = dynamic(() => import("@/components/profile/UserAnalytics")
     {[1, 2, 3].map(i => <div key={i} className="h-64 bg-white border border-slate-100 rounded-[2.5rem]" />)}
   </div>
 });
-
-interface ReadingProgress {
-  id: string;
-  progress_percentage: number;
-  time_spent_seconds: number;
-  last_read_at: string;
-  story_id: string;
-  series_id: string | null;
-  stories: {
-    id: string;
-    title: string;
-    slug: string;
-    genre: string;
-    cover_image: string | null;
-    chapter_number: number;
-    content: string;
-    series: {
-      title: string;
-      slug: string;
-    } | null;
-  };
-  // Expanded fields for UI
-  series_stats?: {
-    total_chapters: number;
-    completed_chapters: number;
-    total_estimated_minutes: number;
-    remaining_minutes: number;
-  };
-  estimated_minutes?: number;
-}
 
 export default function Profile() {
   const { user, loading: authLoading } = useAuth();
@@ -251,15 +223,31 @@ export default function Profile() {
     });
   };
 
-  const ongoingHistory = readingHistory.filter(r => {
+  // Deduplicate reading history to show only the most recent chapter per series
+  const uniqueReads: ReadingProgress[] = [];
+  const seenSeriesIds = new Set<string>();
+
+  for (const record of readingHistory) {
+    if (!record.series_id) {
+      uniqueReads.push(record);
+      continue;
+    }
+
+    if (!seenSeriesIds.has(record.series_id)) {
+      seenSeriesIds.add(record.series_id);
+      uniqueReads.push(record);
+    }
+  }
+
+  const ongoingHistory = uniqueReads.filter(r => {
     const isSeries = !!r.series_id;
     if (isSeries && r.series_stats) {
       return r.series_stats.completed_chapters < r.series_stats.total_chapters;
     }
     return r.progress_percentage < 95;
-  });
+  }).slice(0, 4); // Limit to top 4 as requested
 
-  const completedHistory = readingHistory.filter(r => {
+  const completedHistory = uniqueReads.filter(r => {
     const isSeries = !!r.series_id;
     if (isSeries && r.series_stats) {
       return r.series_stats.completed_chapters === r.series_stats.total_chapters;
@@ -401,156 +389,6 @@ export default function Profile() {
   );
 }
 
-function ContinueReadingCard({ record }: { record: ReadingProgress }) {
-  const isFinished = record.progress_percentage >= 95;
-  const isSeries = !!record.series_id;
-  const story = record.stories;
-  const [loadingNext, setLoadingNext] = useState(false);
-
-  const handleSmartNavigation = async () => {
-    if (isFinished && isSeries) {
-      setLoadingNext(true);
-      try {
-        const { data, error } = await supabase
-          .from('stories')
-          .select('slug')
-          .eq('series_id', record.series_id)
-          .eq('chapter_number', story.chapter_number + 1)
-          .eq('is_published', true)
-          .single();
-        
-        if (data) {
-          window.location.href = `/stories/${data.slug}`;
-          return;
-        }
-      } catch (err) {
-        console.error("End of series or error:", err);
-      }
-    }
-    window.location.href = `/stories/${story.slug}`;
-  };
-
-  const estMinutes = record.series_id 
-    ? record.series_stats?.remaining_minutes 
-    : Math.max(1, Math.ceil((record.estimated_minutes || 0) * (1 - record.progress_percentage / 100)));
-
-  return (
-     <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white p-7 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-crimson/5 transition-all duration-300 group flex gap-6 md:gap-8"
-     >
-       {/* Image column */}
-       <div className="w-28 h-40 md:w-36 md:h-48 rounded-2xl bg-slate-100 shrink-0 overflow-hidden relative shadow-lg">
-          {story.cover_image ? (
-             <img src={story.cover_image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt={story.title} />
-          ) : (
-             <div className="absolute inset-0 flex items-center justify-center text-slate-300">
-                <BookOpen size={32} />
-             </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
-          
-          <div className="absolute top-2 right-2 flex flex-col gap-1 items-end z-10">
-            <div className="bg-white/90 backdrop-blur-sm text-crimson text-[8px] font-black uppercase px-2 py-1 rounded-full shadow-sm">
-              {story.genre}
-            </div>
-          </div>
-       </div>
-
-       {/* Content column */}
-       <div className="flex-1 flex flex-col justify-between py-1">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-crimson">
-                {isSeries ? "Serialized Hub" : "Standalone Read"}
-              </span>
-              <span className="text-[9px] font-bold text-slate-400 italic">
-                {new Date(record.last_read_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-              </span>
-            </div>
-            <h3 className="text-2xl font-serif font-bold text-slate-900 group-hover:text-crimson transition-colors italic leading-tight mb-2">
-              {story.title}
-            </h3>
-            {isSeries && (
-              <div className="flex flex-col gap-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                  Part of: {story.series?.title}
-                </p>
-                <p className="text-[9px] font-bold text-crimson uppercase tracking-widest">
-                  {record.series_stats?.completed_chapters} of {record.series_stats?.total_chapters} Chapters Scribed
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-4">
-             <div className="space-y-3">
-                {/* Chapter Progress - Only for Standalone Stories */}
-                {!isSeries && (
-                  <div>
-                    <div className="flex justify-between items-center mb-1.5 px-1">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Story Progress</span>
-                      <span className="text-[9px] font-black text-crimson uppercase tracking-widest">{Math.round(record.progress_percentage)}%</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-50 border border-slate-100 rounded-full overflow-hidden p-[1px]">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${record.progress_percentage}%` }}
-                        transition={{ duration: 1.5, ease: "circOut" }}
-                        className="h-full bg-crimson/40 rounded-full"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Series Progress Bar (Only for series) */}
-                {isSeries && record.series_stats && (
-                  <div>
-                    <div className="flex justify-between items-center mb-1.5 px-1">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Odyssey</span>
-                      <span className="text-[9px] font-black text-crimson uppercase tracking-widest">
-                        {Math.round((record.series_stats.completed_chapters / record.series_stats.total_chapters) * 100)}%
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-50 border border-slate-100 rounded-full overflow-hidden p-[1px]">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(record.series_stats.completed_chapters / record.series_stats.total_chapters) * 100}%` }}
-                        transition={{ duration: 1.5, ease: "circOut", delay: 0.2 }}
-                        className="h-full bg-crimson rounded-full shadow-[0_0_8px_rgba(153,0,0,0.3)]"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Estimated Time */}
-                <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">
-                  <Clock size={10} className="text-crimson/40" />
-                  <span>Est. {estMinutes}m to {isSeries ? "complete series" : "finish read"}</span>
-                </div>
-             </div>
-
-             <button 
-               onClick={handleSmartNavigation}
-               disabled={loadingNext}
-               className="w-full py-3.5 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.25em] transition-all flex items-center justify-center gap-3 group/btn hover:bg-crimson hover:shadow-xl hover:shadow-crimson/20 active:scale-[0.98] disabled:opacity-50"
-             >
-               {loadingNext ? (
-                 <Loader2 className="w-4 h-4 animate-spin" />
-               ) : (
-                 <>
-                  <span>{(isFinished && isSeries) ? "Next Chapter" : "Resume Legend"}</span>
-                  <ChevronRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
-                 </>
-               )}
-             </button>
-          </div>
-       </div>
-     </motion.div>
-  );
-}
 
 function FilterBar({ search, setSearch, genre, setGenre, type, setType, genres, placeholder }: any) {
   return (
